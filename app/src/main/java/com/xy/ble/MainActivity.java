@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
 
         AnimatorSet animSet = new AnimatorSet();
         animSet.play(va_one).with(va_two).with(anim);
-        animSet.setDuration(1000);
+        animSet.setDuration(500);
         animSet.start();
 
     }
