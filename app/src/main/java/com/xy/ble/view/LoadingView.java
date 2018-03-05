@@ -90,11 +90,11 @@ public class LoadingView extends View {
 
         canvas.drawBitmap(bitmap_icon, (getMeasuredWidth() / 2 - bitmap_icon.getWidth() / 2), (getMeasuredHeight() / 2 - bitmap_icon.getHeight() / 2), paint_light);
 
-        int length = (getMeasuredWidth() / 2 - bitmap_icon.getWidth() / 2);
+        int length = (getMeasuredWidth() / 2 - bitmap_icon.getWidth() / 2 - 10);
 
         int r1 = bitmap_icon.getWidth() / 2 + length / 3;
         int r2 = bitmap_icon.getWidth() / 2 + (length * 2 / 3);
-        int r3 = bitmap_icon.getWidth() / 2 + length - 10;
+        int r3 = bitmap_icon.getWidth() / 2 + length;
 
         canvas.drawCircle(getMeasuredWidth() / 2, getMeasuredHeight() / 2, r1, paint_light);
         canvas.drawCircle(getMeasuredWidth() / 2, getMeasuredHeight() / 2, r2, paint_light);

@@ -17,9 +17,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.text.TextUtils;
 import android.util.Log;
-
 
 import com.xy.ble.MyApplication;
 
@@ -43,19 +41,11 @@ public class BluetoothController {
 
     private BluetoothGattCharacteristic bleGattCharacteristic;
 
-    private BluetoothGattCharacteristic bandWriteCharacteristic;
-
-    private BluetoothGattCharacteristic bandNotifyCharacteristic;
-
     private Handler mServiceHandler;
 
     private String deviceAddress;
 
     private boolean isScan = false;
-
-
-    public BluetoothController() {
-    }
 
     public static BluetoothController getInstance() {
         if (mInstance == null) {
@@ -72,17 +62,13 @@ public class BluetoothController {
         mServiceHandler = handler;
     }
 
-
     public boolean initBLE() {
         if (!MyApplication.getInstance().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             return false;
         }
         final BluetoothManager bluetoothManager = (BluetoothManager) MyApplication.getInstance().getSystemService(Context.BLUETOOTH_SERVICE);
-        bleAdapter = bluetoothManager.getAdapter();
-        if (bleAdapter == null) {
-            return false;
-        }
-        return true;
+        bleAdapter = bluetoothManager != null ? bluetoothManager.getAdapter() : null;
+        return bleAdapter != null;
     }
 
     public boolean isBleOpen() {
@@ -95,8 +81,6 @@ public class BluetoothController {
         isScan = true;
         if (mServiceHandler != null) {
             mServiceHandler.sendEmptyMessageDelayed(ConstantUtils.WM_STOP_SCAN_BLE, 10000);
-        } else {
-
         }
     }
 
@@ -139,7 +123,7 @@ public class BluetoothController {
     }
 
 
-    ScanCallback scanCallback = new ScanCallback() {
+    private ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             super.onScanResult(callbackType, result);

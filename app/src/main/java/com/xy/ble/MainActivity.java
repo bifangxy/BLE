@@ -3,15 +3,22 @@ package com.xy.ble;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.widget.RelativeLayout;
 
+import com.xy.ble.adapter.DeviceAdapter;
+import com.xy.ble.data.BleDevice;
+import com.xy.ble.utils.BluetoothController;
+import com.xy.ble.utils.ConstantUtils;
 import com.xy.ble.utils.PixelUtil;
 import com.xy.ble.view.LoadingView;
 
@@ -27,19 +34,30 @@ public class MainActivity extends AppCompatActivity {
 
     private RelativeLayout rl;
 
-    private ListView lv_devices;
+    private RecyclerView rcv_devices;
 
-    private Handler mHandler = new Handler() {
+    private BluetoothController bluetoothController;
+
+    private DeviceAdapter device_adapter;
+
+    private List<BleDevice> device_list;
+
+    private MyReceiver my_receiver;
+
+    private Handler my_handler = new Handler(new Handler.Callback() {
         @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            switch (msg.what) {
+        public boolean handleMessage(Message message) {
+            switch (message.what) {
                 case 1:
                     performAnim();
                     break;
+                case 2:
+                    device_adapter.notifyDataSetChanged();
+                    break;
             }
+            return false;
         }
-    };
+    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,38 +70,49 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initView() {
-        mLoadingView = (LoadingView) findViewById(R.id.loadingView);
-        rl = (RelativeLayout) findViewById(R.id.rl);
-        lv_devices = (ListView) findViewById(R.id.lv_devices);
+        mLoadingView = findViewById(R.id.loadingView);
+        rl = findViewById(R.id.rl);
+        rcv_devices = findViewById(R.id.rcv_devices);
     }
 
     private void initData() {
+        device_list = new ArrayList<>();
         mLoadingView.update();
-        mHandler.sendEmptyMessageDelayed(1, 5000);
-
-        List<String> dataList = new ArrayList<>();
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        dataList.add("Pooai-08");
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, dataList);
-        lv_devices.setAdapter(adapter);
+        my_handler.sendEmptyMessageDelayed(1, 5000);
+        initRecycleView();
+        initBroadcast();
     }
 
+    private void initBroadcast() {
+        IntentFilter my_intentFilter = new IntentFilter();
+        my_receiver = new MyReceiver();
+
+        my_intentFilter.addAction(ConstantUtils.ACTION_CONNECTED_ONE_DEVICE);
+        my_intentFilter.addAction(ConstantUtils.ACTION_RECEIVE_MESSAGE_FROM_BAND);
+        my_intentFilter.addAction(ConstantUtils.ACTION_STOP_DISCOVERY);
+        my_intentFilter.addAction(ConstantUtils.ACTION_UPDATE_DEVICE_LIST);
+
+        registerReceiver(my_receiver, my_intentFilter);
+    }
+
+    private void initRecycleView() {
+        rcv_devices.setLayoutManager(new LinearLayoutManager(this));
+        device_adapter = new DeviceAdapter(R.layout.device_item, device_list);
+        rcv_devices.setAdapter(device_adapter);
+    }
+
+    @Override
+    protected void onDestroy() {
+        unregisterReceiver(my_receiver);
+        super.onDestroy();
+    }
 
     private void performAnim() {
         ValueAnimator va_one = ValueAnimator.ofInt(rl.getHeight(), PixelUtil.dp2px(mContext, 250));
         va_one.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                int h = (Integer) valueAnimator.getAnimatedValue();
-                rl.getLayoutParams().height = h;
+                rl.getLayoutParams().height = (Integer) valueAnimator.getAnimatedValue();
                 rl.requestLayout();
             }
         });
@@ -104,7 +133,27 @@ public class MainActivity extends AppCompatActivity {
         animSet.play(va_one).with(va_two).with(anim);
         animSet.setDuration(500);
         animSet.start();
+    }
 
+    private class MyReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action != null) {
+                if (action.equals(ConstantUtils.ACTION_UPDATE_DEVICE_LIST)) {
+                    String name = intent.getStringExtra("name");
+                    String address = intent.getStringExtra("address");
+                    String rssi = intent.getStringExtra("rssi");
+                    BleDevice bleDevice = new BleDevice();
+                    bleDevice.setDevice_state(0);
+                    bleDevice.setDevice_name(name);
+                    bleDevice.setDevice_address(address);
+                    bleDevice.setDevice_rssi(rssi);
+                    device_list.add(bleDevice);
+                    my_handler.sendEmptyMessage(2);
+                }
+            }
+        }
     }
 
 

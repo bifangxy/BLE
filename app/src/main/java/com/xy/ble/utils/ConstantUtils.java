@@ -3,6 +3,7 @@ package com.xy.ble.utils;
 public class ConstantUtils {
     //消息类型
     public final static int WM_STOP_SCAN_BLE = 1;
+
     public final static int WM_UPDATE_BLE_LIST = 2;
     //蓝牙连接状态改变
     public final static int WM_BLE_CONNECTED_STATE_CHANGE = 3;
