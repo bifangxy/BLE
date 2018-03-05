@@ -20,6 +20,7 @@ import android.os.Message;
 import android.util.Log;
 
 import com.xy.ble.MyApplication;
+import com.xy.ble.data.BleDevice;
 
 import java.util.Iterator;
 import java.util.List;
@@ -43,6 +44,8 @@ public class BluetoothController {
 
     private Handler mServiceHandler;
 
+    private BleDevice connect_device;
+
     private String deviceAddress;
 
     private boolean isScan = false;
@@ -63,10 +66,11 @@ public class BluetoothController {
     }
 
     public boolean initBLE() {
+        //检查手机是否支持BLE
         if (!MyApplication.getInstance().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             return false;
         }
-        final BluetoothManager bluetoothManager = (BluetoothManager) MyApplication.getInstance().getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothManager bluetoothManager = (BluetoothManager) MyApplication.getInstance().getSystemService(Context.BLUETOOTH_SERVICE);
         bleAdapter = bluetoothManager != null ? bluetoothManager.getAdapter() : null;
         return bleAdapter != null;
     }
@@ -75,28 +79,42 @@ public class BluetoothController {
         return bleAdapter.isEnabled();
     }
 
-    public void startScan() {
-        bleScanner = bleAdapter.getBluetoothLeScanner();
-        bleScanner.startScan(scanCallback);
-        isScan = true;
-        if (mServiceHandler != null) {
-            mServiceHandler.sendEmptyMessageDelayed(ConstantUtils.WM_STOP_SCAN_BLE, 10000);
+    /**
+     * @param enable 开启or关闭蓝牙
+     */
+    public void bluetoothScan(boolean enable) {
+        if (enable) {
+            isScan = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                bleScanner = bleAdapter.getBluetoothLeScanner();
+                bleScanner.startScan(scanCallback);
+            } else {
+                bleAdapter.startLeScan(leScanCallback);
+            }
+            if (mServiceHandler != null) {
+                mServiceHandler.sendEmptyMessageDelayed(ConstantUtils.WM_STOP_SCAN_BLE, 10000);
+            }
+        } else {
+            isScan = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                bleScanner.stopScan(scanCallback);
+            } else {
+                bleAdapter.stopLeScan(leScanCallback);
+            }
         }
+
     }
 
     public boolean isDiscovering() {
+        Log.d(LOG_TAG, "----" + bleAdapter.isDiscovering());
         return isScan;
     }
 
-    public void sendStopScanMessage() {
-        if (mServiceHandler != null) {
-            mServiceHandler.sendEmptyMessage(ConstantUtils.WM_STOP_SCAN_BLE);
-        }
-    }
 
-    public void connectDevice(String address) {
-        deviceAddress = address;
-        BluetoothDevice localBluetoothDevice = bleAdapter.getRemoteDevice(deviceAddress);
+    public void connectDevice(BleDevice bleDevice) {
+        this.connect_device = null;
+        connect_device = bleDevice;
+        BluetoothDevice localBluetoothDevice = bleAdapter.getRemoteDevice(bleDevice.getDevice_address());
         if (bleGatt != null) {
             bleGatt.disconnect();
             bleGatt.close();
@@ -104,12 +122,6 @@ public class BluetoothController {
         }
         bleGatt = localBluetoothDevice.connectGatt(MyApplication.getInstance(), false, bleGattCallback);
     }
-
-    public void stopScan() {
-        bleScanner.stopScan(scanCallback);
-        isScan = false;
-    }
-
 
     public boolean write(byte byteArray[]) {
         if (bleGattCharacteristic == null) {
@@ -123,6 +135,9 @@ public class BluetoothController {
     }
 
 
+    /**
+     * 5.0系统以上用此回调
+     */
     private ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -154,6 +169,27 @@ public class BluetoothController {
     };
 
 
+    /**
+     * 4.3系统以上5.0以下用此回调
+     */
+
+    private BluetoothAdapter.LeScanCallback leScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(BluetoothDevice bluetoothDevice, int i, byte[] bytes) {
+            String deviceName = bluetoothDevice.getName();
+            if (deviceName == null) {
+                return;
+            } else if (mServiceHandler != null && !deviceName.isEmpty()) {
+                Message message = new Message();
+                message.what = ConstantUtils.WM_UPDATE_BLE_LIST;
+                message.obj = bluetoothDevice;
+                message.arg1 = i;
+                mServiceHandler.sendMessage(message);
+            }
+        }
+    };
+
+
     public void disConnect() {
         if (bleGatt != null) {
             bleGatt.disconnect();
@@ -181,7 +217,7 @@ public class BluetoothController {
             if (newState == 0) {
                 Log.d(LOG_TAG, "断开连接");
                 mServiceHandler.sendEmptyMessage(ConstantUtils.WM_BAND_STOP_CONNECT);
-                connectDevice(deviceAddress);
+                connectDevice(connect_device);
             }
             gatt.disconnect();
             gatt.close();

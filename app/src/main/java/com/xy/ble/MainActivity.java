@@ -77,6 +77,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void initData() {
         device_list = new ArrayList<>();
+        BleDevice bleDevice = new BleDevice();
+        bleDevice.setDevice_address("14:25:56:78");
+        bleDevice.setDevice_state(0);
+        bleDevice.setDevice_name("Pooai08");
+        device_list.add(bleDevice);
         mLoadingView.update();
         my_handler.sendEmptyMessageDelayed(1, 5000);
         initRecycleView();

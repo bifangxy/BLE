@@ -28,6 +28,7 @@ public class BluetoothService extends Service {
         public boolean handleMessage(Message message) {
             switch (message.what) {
                 case ConstantUtils.WM_STOP_SCAN_BLE:
+                    bluetooth_controller.bluetoothScan(false);
                     break;
                 case ConstantUtils.WM_UPDATE_BLE_LIST:
                     BluetoothDevice bluetoothDevice = (BluetoothDevice) message.obj;
