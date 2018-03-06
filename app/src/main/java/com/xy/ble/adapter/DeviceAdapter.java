@@ -26,6 +26,9 @@ public class DeviceAdapter extends BaseQuickAdapter<BleDevice, BaseViewHolder> {
         if (item.getDevice_state() == 1) {
             helper.setText(R.id.tv_device_state, "已连接");
             helper.setGone(R.id.tv_device_state, true);
+        } else if (item.getDevice_state() == 2) {
+            helper.setText(R.id.tv_device_state, "正在连接");
+            helper.setGone(R.id.tv_device_state, true);
         } else {
             helper.setGone(R.id.tv_device_state, false);
         }

@@ -44,11 +44,12 @@ public class BluetoothController {
 
     private Handler mServiceHandler;
 
-    private BleDevice connect_device;
-
-    private String deviceAddress;
-
     private boolean isScan = false;
+
+    //0，未连接，1，已连接，2正在连接
+    private int connect_state = 0;
+
+    private BluetoothDevice targetDevice;
 
     public static BluetoothController getInstance() {
         if (mInstance == null) {
@@ -75,9 +76,11 @@ public class BluetoothController {
         return bleAdapter != null;
     }
 
+
     public boolean isBleOpen() {
         return bleAdapter.isEnabled();
     }
+
 
     /**
      * @param enable 开启or关闭蓝牙
@@ -112,8 +115,6 @@ public class BluetoothController {
 
 
     public void connectDevice(BleDevice bleDevice) {
-        this.connect_device = null;
-        connect_device = bleDevice;
         BluetoothDevice localBluetoothDevice = bleAdapter.getRemoteDevice(bleDevice.getDevice_address());
         if (bleGatt != null) {
             bleGatt.disconnect();
@@ -145,9 +146,7 @@ public class BluetoothController {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 BluetoothDevice device = result.getDevice();
                 String deviceName = device.getName();
-                if (deviceName == null) {
-                    return;
-                } else if (mServiceHandler != null && !deviceName.isEmpty()) {
+                if (deviceName != null && mServiceHandler != null && !deviceName.isEmpty()) {
                     Message message = new Message();
                     message.what = ConstantUtils.WM_UPDATE_BLE_LIST;
                     message.obj = device;
@@ -177,9 +176,7 @@ public class BluetoothController {
         @Override
         public void onLeScan(BluetoothDevice bluetoothDevice, int i, byte[] bytes) {
             String deviceName = bluetoothDevice.getName();
-            if (deviceName == null) {
-                return;
-            } else if (mServiceHandler != null && !deviceName.isEmpty()) {
+            if (deviceName != null && mServiceHandler != null && !deviceName.isEmpty()) {
                 Message message = new Message();
                 message.what = ConstantUtils.WM_UPDATE_BLE_LIST;
                 message.obj = bluetoothDevice;
@@ -192,10 +189,13 @@ public class BluetoothController {
 
     public void disConnect() {
         if (bleGatt != null) {
+            targetDevice = bleGatt.getDevice();
+            Log.d(LOG_TAG, "----主动断开" + targetDevice.getName());
             bleGatt.disconnect();
             bleGatt.close();
             bleGatt = null;
-            mServiceHandler.sendEmptyMessage(ConstantUtils.WM_DISCONNECT);
+            connect_state = 0;
+            mServiceHandler.sendEmptyMessage(ConstantUtils.WM_STOP_CONNECT);
         }
     }
 
@@ -203,21 +203,23 @@ public class BluetoothController {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
+            targetDevice = gatt.getDevice();
             if (newState == 2) {
+                connect_state = 1;
                 Log.d(LOG_TAG, "连接成功");
                 Message message = new Message();
-                message.what = ConstantUtils.WM_BAND_CONNECTED_STATE_CHANGE;
+                message.what = ConstantUtils.WM_BLE_CONNECTED_STATE_CHANGE;
                 Bundle bundle = new Bundle();
-                bundle.putString("address", deviceAddress);
+                bundle.putString("address", targetDevice.getAddress());
                 message.obj = bundle;
                 mServiceHandler.sendMessage(message);
                 gatt.discoverServices();
                 return;
             }
             if (newState == 0) {
+                connect_state = 0;
                 Log.d(LOG_TAG, "断开连接");
-                mServiceHandler.sendEmptyMessage(ConstantUtils.WM_BAND_STOP_CONNECT);
-                connectDevice(connect_device);
+                mServiceHandler.sendEmptyMessage(ConstantUtils.WM_STOP_CONNECT);
             }
             gatt.disconnect();
             gatt.close();
@@ -301,4 +303,11 @@ public class BluetoothController {
         }
     }
 
+    public int getConnect_state() {
+        return connect_state;
+    }
+
+    public BluetoothDevice getTargetDevice() {
+        return targetDevice;
+    }
 }

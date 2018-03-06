@@ -4,6 +4,7 @@ import android.app.Service;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -35,13 +36,18 @@ public class BluetoothService extends Service {
                     my_intent = new Intent(ConstantUtils.ACTION_UPDATE_DEVICE_LIST);
                     my_intent.putExtra("name", bluetoothDevice.getName());
                     my_intent.putExtra("address", bluetoothDevice.getAddress());
-                    my_intent.putExtra("rssi", bluetoothDevice);
+                    my_intent.putExtra("rssi", message.arg1);
                     sendBroadcast(my_intent);
                     break;
                 case ConstantUtils.WM_BLE_CONNECTED_STATE_CHANGE:
-
+                    Bundle bundle = (Bundle) message.obj;
+                    my_intent = new Intent(ConstantUtils.ACTION_CONNECTED_ONE_DEVICE);
+                    my_intent.putExtra("address", bundle.getString("address"));
+                    sendBroadcast(my_intent);
                     break;
                 case ConstantUtils.WM_STOP_CONNECT:
+                    my_intent = new Intent(ConstantUtils.ACTION_STOP_CONNECT);
+                    sendBroadcast(my_intent);
                     break;
             }
             return false;
