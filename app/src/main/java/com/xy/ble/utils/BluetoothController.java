@@ -26,7 +26,8 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Created by Administrator on 2017/3/24.
+ * Created by Xieying on 2017/3/24.
+ * 蓝牙工具类
  */
 
 public class BluetoothController {
@@ -105,15 +106,20 @@ public class BluetoothController {
                 bleAdapter.stopLeScan(leScanCallback);
             }
         }
-
     }
 
+    public void stopScan() {
+        if (mServiceHandler != null) {
+            mServiceHandler.sendEmptyMessage(ConstantUtils.WM_STOP_SCAN_BLE);
+        }
+    }
+
+
     public boolean isDiscovering() {
-        Log.d(LOG_TAG, "----" + bleAdapter.isDiscovering());
         return isScan;
     }
 
-
+    //连接蓝牙设备
     public void connectDevice(BleDevice bleDevice) {
         BluetoothDevice localBluetoothDevice = bleAdapter.getRemoteDevice(bleDevice.getDevice_address());
         if (bleGatt != null) {
@@ -124,6 +130,7 @@ public class BluetoothController {
         bleGatt = localBluetoothDevice.connectGatt(MyApplication.getInstance(), false, bleGattCallback);
     }
 
+    //发送byte数组数据
     public boolean write(byte byteArray[]) {
         if (bleGattCharacteristic == null) {
             return false;
@@ -132,6 +139,18 @@ public class BluetoothController {
             return false;
         }
         bleGattCharacteristic.setValue(byteArray);
+        return bleGatt.writeCharacteristic(bleGattCharacteristic);
+    }
+
+    //写入String数据
+    public boolean write(String data) {
+        if (bleGattCharacteristic == null) {
+            return false;
+        }
+        if (bleGatt == null) {
+            return false;
+        }
+        bleGattCharacteristic.setValue(data);
         return bleGatt.writeCharacteristic(bleGattCharacteristic);
     }
 
@@ -186,11 +205,10 @@ public class BluetoothController {
         }
     };
 
-
+    //断开蓝牙连接
     public void disConnect() {
         if (bleGatt != null) {
             targetDevice = bleGatt.getDevice();
-            Log.d(LOG_TAG, "----主动断开" + targetDevice.getName());
             bleGatt.disconnect();
             bleGatt.close();
             bleGatt = null;
@@ -199,7 +217,7 @@ public class BluetoothController {
         }
     }
 
-    BluetoothGattCallback bleGattCallback = new BluetoothGattCallback() {
+    private BluetoothGattCallback bleGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
@@ -272,6 +290,7 @@ public class BluetoothController {
         }
     };
 
+    //查找读写服务，可根据蓝牙设备的UUID进行修改
     private void findService(List<BluetoothGattService> paramList) {
         Iterator iterator1 = paramList.iterator();
         while (iterator1.hasNext()) {

@@ -12,10 +12,10 @@ import android.view.animation.Animation;
 import android.view.animation.Transformation;
 
 import com.xy.ble.R;
-import com.xy.ble.data.BleDevice;
 
 /**
- * Created by Administrator on 2018/2/28.
+ * Created by Xieying on 2018/2/28.
+ * 自定义蓝牙搜索View
  */
 
 public class LoadingView extends View {
@@ -163,6 +163,11 @@ public class LoadingView extends View {
     public void startSearchingAnimation() {
         offset = 0;
         this.startAnimation(searchingAnimation);
+    }
+
+    public void stopSearchingAnimation() {
+        offset = 0;
+        searchingAnimation.cancel();
     }
 
     public void startConnectingAnimation() {

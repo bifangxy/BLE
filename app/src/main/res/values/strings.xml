@@ -4,4 +4,10 @@
     <string name="connected">已连接</string>
     <string name="cancel">取消</string>
     <string name="sure">确定</string>
+    <string name="loaction_access_describe">您需要允许应用获取定位权限，否则将无法搜索到蓝牙设备</string>
+    <string name="tips">温馨提示</string>
+    <string name="please_allow_open_bluetooth">请允许打开蓝牙</string>
+    <string name="device_already_connected">该设备已经连接</string>
+    <string name="whether_disconnect_this_connect_other">是否断开当前连接设备并连接此设备</string>
+    <string name="can_not_access_location_permission">无法获取定位权限</string>
 </resources>

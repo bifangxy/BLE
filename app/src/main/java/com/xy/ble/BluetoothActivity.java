@@ -8,7 +8,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
@@ -21,12 +20,11 @@ import android.os.Message;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
@@ -48,8 +46,14 @@ import net.lemonsoft.lemonhello.interfaces.LemonHelloActionDelegate;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
-    private static final String LOG_TAG = MainActivity.class.getSimpleName();
+
+/**
+ * Created by Xieying on 2018/2/27.
+ * 蓝牙Activity
+ */
+
+public class BluetoothActivity extends AppCompatActivity implements View.OnClickListener {
+    private static final String LOG_TAG = BluetoothActivity.class.getSimpleName();
 
     private static final int REQUEST_ENABLE_BT = 0;
 
@@ -63,6 +67,8 @@ public class MainActivity extends AppCompatActivity {
 
     private RecyclerView rcv_devices;
 
+    private ImageView iv_search;
+
     private BluetoothController bluetoothController;
 
     private DeviceAdapter device_adapter;
@@ -72,6 +78,8 @@ public class MainActivity extends AppCompatActivity {
     private MyReceiver my_receiver;
 
     private BluetoothService my_bluetoothService;
+
+    private ObjectAnimator search_animation;
 
     private Handler my_handler = new Handler(new Handler.Callback() {
         @Override
@@ -120,91 +128,42 @@ public class MainActivity extends AppCompatActivity {
         mLoadingView = findViewById(R.id.loadingView);
         rl = findViewById(R.id.rl);
         rcv_devices = findViewById(R.id.rcv_devices);
+        iv_search = findViewById(R.id.iv_search);
     }
 
     private void initData() {
         initBluetoothService();
 
         bluetoothController = BluetoothController.getInstance();
-        bluetoothController.initBLE();
-        device_list = new ArrayList<>();
-
-        initRecycleView();
-        initBroadcast();
+        if (!bluetoothController.initBLE()) {
+            Toast.makeText(mContext, "该设备不支持蓝牙BLE", Toast.LENGTH_SHORT).show();
+            finish();
+        } else {
+            device_list = new ArrayList<>();
+            initRecycleView();
+            initBroadcast();
+        }
     }
 
 
     private void initListener() {
-        mLoadingView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (bluetoothController.getConnect_state() == 1) {
-                    LemonHello.getWarningHello(getString(R.string.connected) + bluetoothController.getTargetDevice().getName(), getString(R.string.whether_disconnected_bluetooth))
-                            .addAction(new LemonHelloAction(getString(R.string.cancel), new LemonHelloActionDelegate() {
-                                @Override
-                                public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
-                                    lemonHelloView.hide();
-                                }
-                            }))
-                            .addAction(new LemonHelloAction(getString(R.string.sure), new LemonHelloActionDelegate() {
-                                @Override
-                                public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
-                                    bluetoothController.disConnect();
-                                    lemonHelloView.hide();
-                                }
-                            }))
-                            .show(mContext);
-                    Log.d(LOG_TAG, "----蓝牙已连接-----");
-                } else {
-                    openAndSearch();
-                }
-            }
-        });
+        iv_search.setOnClickListener(this);
+        mLoadingView.setOnClickListener(this);
         device_adapter.setOnItemClickListener(new BaseQuickAdapter.OnItemClickListener() {
             @Override
-            public void onItemClick(BaseQuickAdapter adapter, View view, final int position) {
-                if (bluetoothController.getConnect_state() == 1) {
-                    if (device_list.get(position).getDevice_address().equals(bluetoothController.getTargetDevice().getAddress())) {
-                        Toast.makeText(mContext, "该设备已经连接", Toast.LENGTH_SHORT).show();
-                    } else {
-                        LemonHello.getWarningHello(getString(R.string.connected) + bluetoothController.getTargetDevice().getName(), "是否断开当前连接设备并连接此设备")
-                                .addAction(new LemonHelloAction(getString(R.string.cancel), new LemonHelloActionDelegate() {
-                                    @Override
-                                    public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
-                                        lemonHelloView.hide();
-                                    }
-                                }))
-                                .addAction(new LemonHelloAction(getString(R.string.sure), new LemonHelloActionDelegate() {
-                                    @Override
-                                    public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
-                                        bluetoothController.disConnect();
-                                        BleDevice bleDevice = device_list.get(position);
-                                        device_list.get(position).setDevice_state(2);
-                                        device_adapter.notifyDataSetChanged();
-                                        bluetoothController.connectDevice(bleDevice);
-                                        mLoadingView.startConnectingAnimation();
-                                        lemonHelloView.hide();
-                                    }
-                                }))
-                                .show(mContext);
-                    }
-                } else {
-                    BleDevice bleDevice = device_list.get(position);
-                    device_list.get(position).setDevice_state(2);
-                    device_adapter.notifyDataSetChanged();
-                    bluetoothController.connectDevice(bleDevice);
-                    mLoadingView.startConnectingAnimation();
-                }
+            public void onItemClick(BaseQuickAdapter adapter, View view, int position) {
+                connect_device(position);
             }
         });
     }
 
+
+    //初始化广播
     private void initBroadcast() {
         IntentFilter my_intentFilter = new IntentFilter();
         my_receiver = new MyReceiver();
 
         my_intentFilter.addAction(ConstantUtils.ACTION_CONNECTED_ONE_DEVICE);
-        my_intentFilter.addAction(ConstantUtils.ACTION_RECEIVE_MESSAGE_FROM_BAND);
         my_intentFilter.addAction(ConstantUtils.ACTION_STOP_DISCOVERY);
         my_intentFilter.addAction(ConstantUtils.ACTION_UPDATE_DEVICE_LIST);
         my_intentFilter.addAction(ConstantUtils.ACTION_STOP_CONNECT);
@@ -214,18 +173,53 @@ public class MainActivity extends AppCompatActivity {
         mLoadingView.setOpen(bluetoothController.isBleOpen());
     }
 
+    //初始化recycleView
     private void initRecycleView() {
         rcv_devices.setLayoutManager(new LinearLayoutManager(this));
         device_adapter = new DeviceAdapter(R.layout.device_item, device_list);
         rcv_devices.setAdapter(device_adapter);
     }
 
+    //初始化BluetoothService
     private void initBluetoothService() {
         Intent intent = new Intent(mContext, BluetoothService.class);
         bindService(intent, serviceConnection, BIND_AUTO_CREATE);
     }
 
-    private void openAndSearch() {
+    //搜索按钮点击事件
+    private void search() {
+        //判断蓝牙是否正在搜索
+        if (!bluetoothController.isDiscovering()) {
+            //判断蓝牙是否已经连接
+            if (bluetoothController.getConnect_state() == 1) {
+                //是否断开当前连接设备重新搜索
+                LemonHello.getWarningHello(getString(R.string.connected) + bluetoothController.getTargetDevice().getName(), getString(R.string.whether_disconnected_bluetooth))
+                        .addAction(new LemonHelloAction(getString(R.string.cancel), new LemonHelloActionDelegate() {
+                            @Override
+                            public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
+                                lemonHelloView.hide();
+                            }
+                        }))
+                        .addAction(new LemonHelloAction(getString(R.string.sure), new LemonHelloActionDelegate() {
+                            @Override
+                            public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
+                                bluetoothController.disConnect();
+                                checkOpen();
+                                lemonHelloView.hide();
+                            }
+                        }))
+                        .show(mContext);
+            } else {
+                checkOpen();
+            }
+        } else {
+            stopSearch();
+        }
+    }
+
+
+    //检查蓝牙是否打开
+    private void checkOpen() {
         if (bluetoothController.isBleOpen()) {
             checkBluetoothPermission();
         } else {
@@ -234,18 +228,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
+    //检查是否有定位权限
     private void checkBluetoothPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                if (!ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
+                if (!ActivityCompat.shouldShowRequestPermissionRationale(BluetoothActivity.this,
                         Manifest.permission.READ_CONTACTS)) {
-                    LemonHello.getInformationHello("温馨提示", "您需要允许应用获取定位权限，否则将无法搜索到蓝牙设备")
-                            .addAction(new LemonHelloAction("确定", new LemonHelloActionDelegate() {
+                    LemonHello.getInformationHello(getString(R.string.tips), getString(R.string.loaction_access_describe))
+                            .addAction(new LemonHelloAction(getString(R.string.sure), new LemonHelloActionDelegate() {
                                 @Override
                                 public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
                                     lemonHelloView.hide();
-                                    ActivityCompat.requestPermissions(MainActivity.this,
+                                    ActivityCompat.requestPermissions(BluetoothActivity.this,
                                             new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
                                             MY_PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION);
                                 }
@@ -264,10 +258,58 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //开始搜索，初始化List集合，开始搜索动画
     private void startSearch() {
+        device_list.clear();
+        device_adapter.notifyDataSetChanged();
         bluetoothController.bluetoothScan(true);
         mLoadingView.startSearchingAnimation();
-        my_handler.sendEmptyMessageDelayed(1, 10000);
+        searchAnimation();
+    }
+
+    //停止搜索
+    private void stopSearch() {
+        bluetoothController.stopScan();
+    }
+
+    //连接设备
+    private void connect_device(final int position) {
+        //检查蓝牙是否已连接
+        if (bluetoothController.getConnect_state() == 1) {
+            //检查连接的蓝牙是否为当前设备
+            if (device_list.get(position).getDevice_address().equals(bluetoothController.getTargetDevice().getAddress())) {
+                Toast.makeText(mContext, R.string.device_already_connected, Toast.LENGTH_SHORT).show();
+            } else {
+                //是否断开当前蓝牙连接，连接另一个蓝牙设备
+                LemonHello.getWarningHello(getString(R.string.connected) + bluetoothController.getTargetDevice().getName(), getString(R.string.whether_disconnect_this_connect_other))
+                        .addAction(new LemonHelloAction(getString(R.string.cancel), new LemonHelloActionDelegate() {
+                            @Override
+                            public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
+                                lemonHelloView.hide();
+                            }
+                        }))
+                        .addAction(new LemonHelloAction(getString(R.string.sure), new LemonHelloActionDelegate() {
+                            @Override
+                            public void onClick(LemonHelloView lemonHelloView, LemonHelloInfo lemonHelloInfo, LemonHelloAction lemonHelloAction) {
+                                bluetoothController.disConnect();
+                                connect_device(position);
+                                lemonHelloView.hide();
+                            }
+                        }))
+                        .show(mContext);
+
+            }
+        } else {
+            //检查蓝牙是否在搜索的状态
+            if (bluetoothController.isDiscovering()) {
+                stopSearch();
+            }
+            BleDevice bleDevice = device_list.get(position);
+            device_list.get(position).setDevice_state(2);
+            device_adapter.notifyDataSetChanged();
+            bluetoothController.connectDevice(bleDevice);
+            mLoadingView.startConnectingAnimation();
+        }
     }
 
 
@@ -279,6 +321,7 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    //recycleView显示动画
     private void performAnim() {
         ValueAnimator va_one = ValueAnimator.ofInt(rl.getHeight(), PixelUtil.dp2px(mContext, 250));
         va_one.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
@@ -307,12 +350,22 @@ public class MainActivity extends AppCompatActivity {
         animSet.start();
     }
 
+    //底部搜索图标动画
+    private void searchAnimation() {
+        search_animation = ObjectAnimator.ofFloat(iv_search, "rotation", 0, 360);
+        search_animation.setRepeatCount(-1);
+        search_animation.setDuration(1000);
+        search_animation.setRepeatMode(ValueAnimator.RESTART);
+        search_animation.start();
+    }
+
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_ENABLE_BT) {
             if (resultCode == RESULT_CANCELED) {
-                Toast.makeText(mContext, "请允许打开蓝牙", Toast.LENGTH_SHORT).show();
+                Toast.makeText(mContext, R.string.please_allow_open_bluetooth, Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -324,8 +377,20 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startSearch();
             } else {
-                Toast.makeText(mContext, "无法获取定位权限", Toast.LENGTH_SHORT).show();
+                Toast.makeText(mContext, R.string.can_not_access_location_permission, Toast.LENGTH_SHORT).show();
             }
+        }
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.loadingView:
+                search();
+                break;
+            case R.id.iv_search:
+                search();
+                break;
         }
     }
 
@@ -339,7 +404,6 @@ public class MainActivity extends AppCompatActivity {
                         String name = intent.getStringExtra("name");
                         String address = intent.getStringExtra("address");
                         int rssi = intent.getIntExtra("rssi", 0);
-                        Log.d(LOG_TAG, "---" + name);
                         BleDevice bleDevice = new BleDevice();
                         bleDevice.setDevice_state(0);
                         bleDevice.setDevice_name(name);
@@ -356,7 +420,7 @@ public class MainActivity extends AppCompatActivity {
                             mLoadingView.startOpeningAnimation();
                         } else if (state == BluetoothAdapter.STATE_ON) {
                             mLoadingView.stopOpeningAnimation();
-                            startSearch();
+                            checkBluetoothPermission();
                         }
                         break;
                     case ConstantUtils.ACTION_CONNECTED_ONE_DEVICE:
@@ -376,6 +440,13 @@ public class MainActivity extends AppCompatActivity {
                                 device_adapter.notifyDataSetChanged();
                             }
                         }
+                        break;
+                    case ConstantUtils.ACTION_STOP_DISCOVERY:
+                        if (mLoadingView.getHeight() != PixelUtil.dp2px(mContext, 150)) {
+                            performAnim();
+                        }
+                        mLoadingView.stopSearchingAnimation();
+                        search_animation.cancel();
                         break;
                 }
             }

@@ -14,7 +14,8 @@ import com.xy.ble.utils.BluetoothController;
 import com.xy.ble.utils.ConstantUtils;
 
 /**
- * Created by Administrator on 2018/3/5.
+ * Created by Xieying on 2018/3/5.
+ * 自定义蓝牙服务
  */
 
 public class BluetoothService extends Service {
@@ -29,7 +30,11 @@ public class BluetoothService extends Service {
         public boolean handleMessage(Message message) {
             switch (message.what) {
                 case ConstantUtils.WM_STOP_SCAN_BLE:
-                    bluetooth_controller.bluetoothScan(false);
+                    if (bluetooth_controller.isDiscovering()) {
+                        bluetooth_controller.bluetoothScan(false);
+                        my_intent = new Intent(ConstantUtils.ACTION_STOP_DISCOVERY);
+                        sendBroadcast(my_intent);
+                    }
                     break;
                 case ConstantUtils.WM_UPDATE_BLE_LIST:
                     BluetoothDevice bluetoothDevice = (BluetoothDevice) message.obj;
